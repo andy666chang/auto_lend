@@ -8,6 +8,7 @@ import json
 import time
 import os
 import threading
+import queue
 
 THREAD_NUM = 5
 
@@ -61,9 +62,36 @@ def lend_job(user):
         print(ret.text)
 
     # print(user['name'] + " Finish")
-    semaphore.release()
     return
 
+
+class Worker(threading.Thread):
+    def __init__(self, queue, num, semaphore):
+        threading.Thread.__init__(self)
+        self.queue = queue
+        self.num = num
+        self.semaphore = semaphore
+
+    def run(self):
+
+        while True:
+            # 取得旗標
+            self.semaphore.acquire()
+
+            if self.queue.qsize() == 0:
+                # print("thread: ", self.num, "No user")
+                # 釋放旗標
+                self.semaphore.release()
+                break;
+
+            user = self.queue.get()
+            print("thread: ", self.num , user['name'])
+
+            # 釋放旗標
+            self.semaphore.release()
+
+
+            lend_job(user)
 
 
 if __name__ == '__main__':
@@ -76,19 +104,26 @@ if __name__ == '__main__':
     # Load users
     users = load_user(dire + os.sep + "database.json")
 
+    # 建立佇列
+    my_queue = queue.Queue()
+
+    # 將資料放入佇列
+    for user in users:
+        my_queue.put(user)
+
     # 建立旗標
-    semaphore = threading.Semaphore(THREAD_NUM)
+    semaphore = threading.Semaphore(1)
 
     # Process all users
-    for user in users:
-        semaphore.acquire()
-        t = threading.Thread(target = lend_job, args = (user,))
-        t.daemon = True 
-        t.start()
+    threads = []
+    for i in range(THREAD_NUM):
+        # print("Create thread", i)
+        threads.append(Worker(my_queue, i, semaphore))
+        threads[i].daemon = True 
+
+    for i in range(THREAD_NUM):
+        threads[i].start()
 
     # time.sleep(5)
-    for x in range(THREAD_NUM):
-        semaphore.acquire()
-
-    for x in range(THREAD_NUM):
-        semaphore.release()
+    for i in range(THREAD_NUM):
+        threads[i].join()
