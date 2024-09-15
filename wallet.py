@@ -19,9 +19,11 @@ def get_wallet(user):
     }
     
     response = requests.post(f"{API}/{endpoint}", json=payload, headers=headers)
+    if response.status_code != 200:
+        print(user['name'], response.status_code)
+        return {}
     
-    data = json.loads(response.text)
-    return data
+    return response.json()
 
 
 if __name__ == '__main__':
