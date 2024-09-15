@@ -66,29 +66,29 @@ def lend_job(user):
 
 
 class Worker(threading.Thread):
-    def __init__(self, queue, num, semaphore):
+    def __init__(self, queue, num, mutex):
         threading.Thread.__init__(self)
         self.queue = queue
         self.num = num
-        self.semaphore = semaphore
+        self.mutex = mutex
 
     def run(self):
 
         while True:
-            # 取得旗標
-            self.semaphore.acquire()
+            # Get mutex
+            self.mutex.acquire()
 
             if self.queue.qsize() == 0:
                 # print("thread: ", self.num, "No user")
-                # 釋放旗標
-                self.semaphore.release()
+                # Release mutex
+                self.mutex.release()
                 break;
 
             user = self.queue.get()
-            print("thread: ", self.num , user['name'])
+            print("thread:", self.num, ",user:", user['name'])
 
-            # 釋放旗標
-            self.semaphore.release()
+            # Release mutex
+            self.mutex.release()
 
 
             lend_job(user)
@@ -111,14 +111,14 @@ if __name__ == '__main__':
     for user in users:
         my_queue.put(user)
 
-    # 建立旗標
-    semaphore = threading.Semaphore(1)
+    # Create mutex lock
+    mutex = threading.Lock()
 
     # Process all users
     threads = []
     for i in range(THREAD_NUM):
         # print("Create thread", i)
-        threads.append(Worker(my_queue, i, semaphore))
+        threads.append(Worker(my_queue, i, mutex))
         threads[i].daemon = True 
 
     for i in range(THREAD_NUM):
